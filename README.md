@@ -1,5 +1,8 @@
 # Мессенджер
 
+**Открыть:** <https://human-cub.github.io/messenger/>
+**Репо:** <https://github.com/human-cub/messenger>
+
 Лёгкий веб‑мессенджер на vanilla JS. Цель — общаться с РФ через Chrome на старом iPad mini 2/3 (iOS 12), без блокировок и без больших фреймворков.
 
 ## Что внутри
