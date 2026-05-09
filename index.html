@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#517da2">
 <title>Мессенджер</title>
@@ -27,37 +28,39 @@
   /* AUTH */
   #auth-screen {
     position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; align-items: flex-start; justify-content: center;
     background: linear-gradient(180deg, #6c98c0 0%, #517da2 100%);
-    padding: 20px;
+    padding: calc(20px + env(safe-area-inset-top, 0px)) 16px 20px;
     z-index: 50;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   #auth-card {
-    width: 100%; max-width: 340px;
-    background: #fff; border-radius: 14px; padding: 24px 22px;
+    width: 100%; max-width: 360px;
+    background: #fff; border-radius: 14px; padding: 22px 22px 18px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.25);
   }
-  #auth-card h1 { margin: 0 0 4px; font-size: 22px; text-align: center; color: #2c3e50; }
-  #auth-card p.sub { margin: 0 0 18px; text-align: center; color: #888; font-size: 13px; }
+  #auth-card h1 { margin: 0 0 4px; font-size: 24px; text-align: center; color: #2c3e50; }
+  #auth-card p.sub { margin: 0 0 16px; text-align: center; color: #888; font-size: 14px; }
   .field { margin-bottom: 12px; }
   .field input {
-    width: 100%; padding: 12px 14px;
+    width: 100%; padding: 14px 16px;
     border: 1px solid #d0d7de; border-radius: 10px;
     background: #f6f8fa; outline: none;
-    font-size: 16px;
+    font-size: 17px;
   }
   .field input:focus { border-color: #517da2; background: #fff; }
   .btn {
     display: block; width: 100%;
-    padding: 12px 14px; margin-top: 6px;
+    padding: 14px 14px; margin-top: 6px;
     background: #517da2; color: #fff;
-    border-radius: 10px; font-weight: 600; font-size: 16px;
+    border-radius: 10px; font-weight: 600; font-size: 17px;
     text-align: center;
   }
   .btn:active { background: #466b8a; }
   .btn.secondary { background: #eef2f5; color: #517da2; }
   .btn.secondary:active { background: #dde4ea; }
-  .auth-toggle { text-align: center; margin-top: 14px; font-size: 14px; color: #517da2; }
+  .auth-toggle { text-align: center; margin-top: 14px; font-size: 15px; color: #517da2; }
   #auth-error { color: #c0392b; font-size: 13px; min-height: 18px; text-align: center; margin: 4px 0 8px; }
 
   /* APP LAYOUT */
