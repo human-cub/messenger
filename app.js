@@ -69,6 +69,16 @@
   var addContactError = el('add-contact-error');
   var addContactOk = el('add-contact-ok');
   var addContactCancel = el('add-contact-cancel');
+  var chatNameBtn = el('chat-name-btn');
+  var editContactModal = el('edit-contact-modal');
+  var editContactName = el('edit-contact-name');
+  var editContactUsername = el('edit-contact-username');
+  var editContactSave = el('edit-contact-save');
+  var editContactCancel = el('edit-contact-cancel');
+  var editContactDelete = el('edit-contact-delete');
+  var msgActionsModal = el('msg-actions-modal');
+  var msgDeleteBtn = el('msg-delete-btn');
+  var msgActionsCancel = el('msg-actions-cancel');
   var callScreen = el('call-screen');
   var callName = el('call-name');
   var callStatus = el('call-status');
@@ -101,6 +111,10 @@
   }
   function pairKey(a, b) {
     return a < b ? a + '|' + b : b + '|' + a;
+  }
+  function contactDisplayName(c) {
+    if (!c) return '';
+    return c.nickname || contactDisplayName(c) || '';
   }
 
   // === AUTH UI ===
@@ -236,7 +250,7 @@
   async function loadContacts() {
     contactsList.innerHTML = '<div style="padding:14px;color:#888;font-size:13px;">Загрузка…</div>';
     var res = await sb.from('contacts')
-      .select('contact_id, profiles:contact_id (id, username, display_name, avatar_url)')
+      .select('contact_id, nickname, profiles:contact_id (id, username, display_name, avatar_url)')
       .eq('owner_id', me.id);
     if (res.error) {
       contactsList.innerHTML = '<div style="padding:14px;color:#c00;font-size:13px;">' + escapeHtml(res.error.message) + '</div>';
@@ -244,7 +258,11 @@
     }
     contacts = (res.data || []).map(function (r) {
       var p = r.profiles;
-      return { id: p.id, username: p.username, display_name: p.display_name, avatar_url: p.avatar_url };
+      return {
+        id: p.id, username: p.username,
+        display_name: p.display_name, avatar_url: p.avatar_url,
+        nickname: r.nickname || null
+      };
     });
     // Подгружаем последние сообщения для preview
     await loadLastMessages();
@@ -298,9 +316,9 @@
       }
       var unread = unreadByPeer[c.id] || 0;
       html += '<div class="contact-row' + (c.id === currentContactId ? ' active' : '') + '" data-id="' + c.id + '">' +
-        '<div class="avatar">' + escapeHtml(avatarLetter(c.display_name || c.username)) + '</div>' +
+        '<div class="avatar">' + escapeHtml(avatarLetter(contactDisplayName(c))) + '</div>' +
         '<div class="info">' +
-          '<div class="name">' + escapeHtml(c.display_name || c.username) + '</div>' +
+          '<div class="name">' + escapeHtml(contactDisplayName(c)) + '</div>' +
           '<div class="preview">' + escapeHtml(preview) + '</div>' +
         '</div>' +
         (unread ? '<div class="badge">' + unread + '</div>' : '') +
@@ -365,8 +383,8 @@
     if (!currentContact) return;
     chatEmpty.classList.add('hidden');
     chatMain.classList.remove('hidden');
-    chatAvatar.textContent = avatarLetter(currentContact.display_name || currentContact.username);
-    chatName.textContent = currentContact.display_name || currentContact.username;
+    chatAvatar.textContent = avatarLetter(contactDisplayName(currentContact));
+    chatName.textContent = contactDisplayName(currentContact);
     document.body.classList.add('in-chat');
     unreadByPeer[peerId] = 0;
     renderContacts();
@@ -418,7 +436,7 @@
     } else if (m.kind === 'voice') {
       inner = '<audio src="' + escapeHtml(m.media_url) + '" controls preload="none"></audio>';
     }
-    return '<div class="msg ' + (out ? 'out' : 'in') + '">' +
+    return '<div class="msg ' + (out ? 'out' : 'in') + '" data-msg-id="' + escapeHtml('' + m.id) + '">' +
       '<div class="bubble">' + inner + '<div class="time">' + fmtTime(m.created_at) + '</div></div>' +
     '</div>';
   }
@@ -454,11 +472,12 @@
     });
   }
 
-  function removeMessage(peerId, tempId) {
+  function removeMessage(peerId, msgId) {
     var arr = messagesByPeer[peerId];
     if (!arr) return;
     for (var i = arr.length - 1; i >= 0; i--) {
-      if (arr[i].id === tempId) { arr.splice(i, 1); break; }
+      // == чтобы string '123' совпало с number 123 (DELETE realtime приносит number)
+      if (arr[i].id == msgId) { arr.splice(i, 1); break; }
     }
     if (peerId === currentContactId) renderMessages(peerId);
   }
@@ -481,8 +500,8 @@
     updateSendBtnVisibility();
   });
   textInput.addEventListener('keydown', function (e) {
-    // Cmd/Ctrl+Enter — всегда отправка (есть на физической клавиатуре)
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    // Enter без модификаторов — отправка. Shift+Enter — перенос строки.
+    if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
       e.preventDefault();
       sendText();
     }
@@ -791,6 +810,91 @@
   }
   attachHoldRecord(micBtn);
 
+  // === MESSAGE ACTIONS (тап на свой bubble) ===
+  var pendingDeleteMsgId = null;
+  messagesEl.addEventListener('click', function (e) {
+    var node = e.target;
+    while (node && node !== messagesEl && !node.classList.contains('msg')) node = node.parentNode;
+    if (!node || !node.classList || !node.classList.contains('msg')) return;
+    if (!node.classList.contains('out')) return; // удалять можно только свои
+    // Если кликнули по медиа-контролю (audio/video/img/a) — не показываем меню
+    var t = e.target.tagName;
+    if (t === 'AUDIO' || t === 'VIDEO' || t === 'A') return;
+    var id = node.getAttribute('data-msg-id');
+    if (!id || id.indexOf('temp-') === 0) return;
+    pendingDeleteMsgId = id;
+    msgActionsModal.classList.remove('hidden');
+  });
+  msgActionsCancel.addEventListener('click', function () {
+    msgActionsModal.classList.add('hidden');
+    pendingDeleteMsgId = null;
+  });
+  msgDeleteBtn.addEventListener('click', async function () {
+    var id = pendingDeleteMsgId;
+    pendingDeleteMsgId = null;
+    msgActionsModal.classList.add('hidden');
+    if (!id) return;
+    var res = await sb.from('messages').delete().eq('id', id).eq('sender_id', me.id);
+    if (res.error) { alert('Не удалось удалить: ' + res.error.message); return; }
+    // Удалим локально (realtime DELETE придёт собеседнику)
+    if (currentContactId) removeMessage(currentContactId, parseInt(id, 10));
+    // Также обновим preview контакта если это было последнее сообщение
+    refreshPreviews();
+  });
+
+  function refreshPreviews() {
+    if (!currentContactId) { renderContacts(); return; }
+    var arr = messagesByPeer[currentContactId];
+    var last = arr && arr.length ? arr[arr.length - 1] : null;
+    for (var i = 0; i < contacts.length; i++) {
+      if (contacts[i].id === currentContactId) contacts[i].lastMessage = last;
+    }
+    renderContacts();
+  }
+
+  // === EDIT CONTACT (имя контакта в шапке чата) ===
+  chatNameBtn.addEventListener('click', function () {
+    if (!currentContact) return;
+    editContactName.value = contactDisplayName(currentContact);
+    editContactUsername.textContent = '@' + currentContact.username;
+    editContactModal.classList.remove('hidden');
+    setTimeout(function () { editContactName.focus(); editContactName.select(); }, 60);
+  });
+  editContactCancel.addEventListener('click', function () {
+    editContactModal.classList.add('hidden');
+  });
+  editContactSave.addEventListener('click', async function () {
+    if (!currentContact) return;
+    var newName = editContactName.value.trim();
+    // Если ввели что-то отличное от server-имени — сохраняем как nickname; если пусто — обнуляем
+    var nick = (newName && newName !== (currentContact.display_name || currentContact.username)) ? newName : null;
+    var res = await sb.from('contacts').update({ nickname: nick })
+      .eq('owner_id', me.id).eq('contact_id', currentContact.id);
+    if (res.error) { alert('Не сохранилось: ' + res.error.message); return; }
+    currentContact.nickname = nick;
+    chatName.textContent = contactDisplayName(currentContact);
+    chatAvatar.textContent = avatarLetter(contactDisplayName(currentContact));
+    renderContacts();
+    editContactModal.classList.add('hidden');
+  });
+  editContactDelete.addEventListener('click', async function () {
+    if (!currentContact) return;
+    if (!confirm('Удалить контакт «' + contactDisplayName(currentContact) + '»? Переписка останется на сервере, но контакт исчезнет из списка.')) return;
+    var peerId = currentContact.id;
+    var res = await sb.from('contacts').delete()
+      .eq('owner_id', me.id).eq('contact_id', peerId);
+    if (res.error) { alert('Не удалилось: ' + res.error.message); return; }
+    contacts = contacts.filter(function (c) { return c.id !== peerId; });
+    delete messagesByPeer[peerId];
+    delete unreadByPeer[peerId];
+    currentContactId = null; currentContact = null;
+    chatMain.classList.add('hidden');
+    chatEmpty.classList.remove('hidden');
+    document.body.classList.remove('in-chat');
+    editContactModal.classList.add('hidden');
+    renderContacts();
+  });
+
   // === REALTIME ===
   function setupRealtime() {
     teardownRealtime();
@@ -800,6 +904,25 @@
         filter: 'recipient_id=eq.' + me.id
       }, function (payload) {
         onIncomingMessage(payload['new']);
+      })
+      .on('postgres_changes', {
+        event: 'DELETE', schema: 'public', table: 'messages'
+      }, function (payload) {
+        var old = payload['old'];
+        if (!old || !old.id) return;
+        // Удаление касается нас если мы sender или recipient
+        if (old.sender_id !== me.id && old.recipient_id !== me.id) return;
+        var peer = (old.sender_id === me.id) ? old.recipient_id : old.sender_id;
+        removeMessage(peer, old.id);
+        // Обновим preview
+        if (peer === currentContactId) {
+          var arr = messagesByPeer[peer];
+          var last = arr && arr.length ? arr[arr.length - 1] : null;
+          for (var i = 0; i < contacts.length; i++) {
+            if (contacts[i].id === peer) contacts[i].lastMessage = last;
+          }
+          renderContacts();
+        }
       })
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'calls',
@@ -980,7 +1103,7 @@
       var pr = await sb.from('profiles').select('*').eq('id', c.caller_id).maybeSingle();
       if (pr.data) peer = pr.data;
     }
-    callName.textContent = peer ? (peer.display_name || peer.username) : 'Входящий';
+    callName.textContent = peer ? contactDisplayName(peer) : 'Входящий';
     showCallScreen(true);
     setCallStatus(c.type === 'video' ? 'Входящий видеозвонок' : 'Входящий аудиозвонок');
     playRingtone();
@@ -1143,7 +1266,7 @@
     if (!peer && call) {
       for (var i = 0; i < contacts.length; i++) if (contacts[i].id === call.peerId) peer = contacts[i];
     }
-    if (peer) callName.textContent = peer.display_name || peer.username;
+    if (peer) callName.textContent = contactDisplayName(peer);
     callControls.innerHTML = '';
     if (incoming) {
       callControls.innerHTML =

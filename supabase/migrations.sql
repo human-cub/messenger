@@ -16,9 +16,11 @@ create table if not exists public.contacts (
   id bigserial primary key,
   owner_id uuid not null references public.profiles(id) on delete cascade,
   contact_id uuid not null references public.profiles(id) on delete cascade,
+  nickname text,
   created_at timestamptz not null default now(),
   unique (owner_id, contact_id)
 );
+alter table public.contacts add column if not exists nickname text;
 create index if not exists contacts_owner_idx on public.contacts (owner_id);
 
 do $$ begin
@@ -102,16 +104,25 @@ create policy profiles_insert_own on public.profiles for insert with check (auth
 drop policy if exists contacts_read_own on public.contacts;
 drop policy if exists contacts_insert_own on public.contacts;
 drop policy if exists contacts_delete_own on public.contacts;
+drop policy if exists contacts_update_own on public.contacts;
 create policy contacts_read_own on public.contacts for select using (auth.uid() = owner_id);
 create policy contacts_insert_own on public.contacts for insert with check (auth.uid() = owner_id);
 create policy contacts_delete_own on public.contacts for delete using (auth.uid() = owner_id);
+create policy contacts_update_own on public.contacts for update
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 
 drop policy if exists messages_read_participant on public.messages;
 drop policy if exists messages_insert_sender on public.messages;
+drop policy if exists messages_delete_own on public.messages;
 create policy messages_read_participant on public.messages for select
   using (auth.uid() = sender_id or auth.uid() = recipient_id);
 create policy messages_insert_sender on public.messages for insert
   with check (auth.uid() = sender_id);
+create policy messages_delete_own on public.messages for delete
+  using (auth.uid() = sender_id);
+
+-- Чтобы DELETE realtime приносил sender_id/recipient_id (нужно для UI обоих сторон)
+alter table public.messages replica identity full;
 
 drop policy if exists calls_read_participant on public.calls;
 drop policy if exists calls_insert_caller on public.calls;
