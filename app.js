@@ -114,7 +114,7 @@
   }
   function contactDisplayName(c) {
     if (!c) return '';
-    return c.nickname || contactDisplayName(c) || '';
+    return c.nickname || c['display_name'] || c.username || '';
   }
 
   // === AUTH UI ===
@@ -248,27 +248,12 @@
 
   // === CONTACTS ===
   async function loadContacts() {
-    contactsList.innerHTML = '<div style="padding:14px;color:#888;font-size:13px;" id="dbg">Загрузка… [step 1: querying contacts]</div>';
-    var t0 = Date.now();
-    var res;
-    try {
-      res = await Promise.race([
-        sb.from('contacts')
-          .select('contact_id, nickname, profiles:contact_id (id, username, display_name, avatar_url)')
-          .eq('owner_id', me.id),
-        new Promise(function (_, rej) { setTimeout(function () { rej(new Error('TIMEOUT 10s')); }, 10000); })
-      ]);
-    } catch (e) {
-      contactsList.innerHTML = '<div style="padding:14px;color:#c00;font-size:12px;white-space:pre-wrap;word-break:break-word;">contacts query failed:\n' + escapeHtml(e && e.message ? e.message : String(e)) + '</div>';
-      return;
-    }
-    var dt = Date.now() - t0;
+    contactsList.innerHTML = '<div style="padding:14px;color:#888;font-size:13px;">Загрузка…</div>';
+    var res = await sb.from('contacts')
+      .select('contact_id, nickname, profiles:contact_id (id, username, display_name, avatar_url)')
+      .eq('owner_id', me.id);
     if (res.error) {
-      contactsList.innerHTML = '<div style="padding:14px;color:#c00;font-size:12px;white-space:pre-wrap;word-break:break-word;">contacts error after ' + dt + 'ms:\ncode=' + escapeHtml(res.error.code || '') + '\nmessage=' + escapeHtml(res.error.message || '') + '\nhint=' + escapeHtml(res.error.hint || '') + '\ndetails=' + escapeHtml(res.error.details || '') + '</div>';
-      return;
-    }
-    if (!res.data) {
-      contactsList.innerHTML = '<div style="padding:14px;color:#c00;font-size:12px;">no data, no error</div>';
+      contactsList.innerHTML = '<div style="padding:14px;color:#c00;font-size:13px;">' + escapeHtml(res.error.message) + '</div>';
       return;
     }
     contacts = (res.data || [])
