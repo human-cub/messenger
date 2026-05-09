@@ -256,29 +256,42 @@
       contactsList.innerHTML = '<div style="padding:14px;color:#c00;font-size:13px;">' + escapeHtml(res.error.message) + '</div>';
       return;
     }
-    contacts = (res.data || []).map(function (r) {
-      var p = r.profiles;
-      return {
-        id: p.id, username: p.username,
-        display_name: p.display_name, avatar_url: p.avatar_url,
-        nickname: r.nickname || null
-      };
-    });
-    // Подгружаем последние сообщения для preview
-    await loadLastMessages();
+    contacts = (res.data || [])
+      .filter(function (r) { return r && r.profiles; })
+      .map(function (r) {
+        var p = r.profiles;
+        return {
+          id: p.id, username: p.username,
+          display_name: p.display_name, avatar_url: p.avatar_url,
+          nickname: r.nickname || null
+        };
+      });
+    // Сначала рендерим без previews — чтобы UI не висел
     renderContacts();
+    // Потом подгружаем последние сообщения и обновляем
+    try {
+      await loadLastMessages();
+      renderContacts();
+    } catch (e) {
+      if (window.console) console.warn('loadLastMessages failed', e);
+    }
   }
 
   async function loadLastMessages() {
     if (!contacts.length) return;
     var ids = contacts.map(function (c) { return c.id; });
-    // Возьмём последние 1 сообщение по каждому собеседнику. Простой вариант: одним запросом — последние 50, разложим по парам.
+    // Только сообщения, где участвуем мы. Это быстрее и не зависит от RLS-фильтрации.
+    var q = 'and(sender_id.eq.' + me.id + ',recipient_id.in.(' + ids.join(',') + ')),' +
+            'and(recipient_id.eq.' + me.id + ',sender_id.in.(' + ids.join(',') + '))';
     var res = await sb.from('messages')
       .select('*')
-      .or('sender_id.in.(' + ids.join(',') + '),recipient_id.in.(' + ids.join(',') + ')')
+      .or(q)
       .order('created_at', { ascending: false })
       .limit(200);
-    if (res.error) return;
+    if (res.error) {
+      if (window.console) console.warn('loadLastMessages error', res.error);
+      return;
+    }
     var seen = {};
     var msgs = res.data || [];
     for (var i = 0; i < msgs.length; i++) {
