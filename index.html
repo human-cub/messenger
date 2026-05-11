@@ -30,38 +30,41 @@
     position: absolute; inset: 0;
     display: flex; align-items: flex-start; justify-content: center;
     background: linear-gradient(180deg, #6c98c0 0%, #517da2 100%);
-    padding: calc(20px + env(safe-area-inset-top, 0px)) 16px 20px;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
     z-index: 50;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
   #auth-card {
     width: 100%; max-width: 360px;
-    background: #fff; border-radius: 14px; padding: 22px 22px 18px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    background: #fff; border-radius: 12px; padding: 12px 14px 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
   }
-  #auth-card h1 { margin: 0 0 4px; font-size: 24px; text-align: center; color: #2c3e50; }
-  #auth-card p.sub { margin: 0 0 16px; text-align: center; color: #888; font-size: 14px; }
-  .field { margin-bottom: 12px; }
+  .auth-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .auth-head h1 { margin: 0; font-size: 18px; color: #2c3e50; }
+  .auth-head .auth-toggle { font-size: 13px; color: #517da2; cursor: pointer; }
+  .field { margin-bottom: 8px; }
   .field input {
-    width: 100%; padding: 14px 16px;
-    border: 1px solid #d0d7de; border-radius: 10px;
+    width: 100%; padding: 10px 12px;
+    border: 1px solid #d0d7de; border-radius: 8px;
     background: #f6f8fa; outline: none;
-    font-size: 17px;
+    font-size: 17px; /* >=16 чтобы iOS не зумил */
   }
   .field input:focus { border-color: #517da2; background: #fff; }
   .btn {
     display: block; width: 100%;
-    padding: 14px 14px; margin-top: 6px;
+    padding: 11px 14px; margin-top: 4px;
     background: #517da2; color: #fff;
-    border-radius: 10px; font-weight: 600; font-size: 17px;
+    border-radius: 8px; font-weight: 600; font-size: 16px;
     text-align: center;
   }
   .btn:active { background: #466b8a; }
   .btn.secondary { background: #eef2f5; color: #517da2; }
   .btn.secondary:active { background: #dde4ea; }
-  .auth-toggle { text-align: center; margin-top: 14px; font-size: 15px; color: #517da2; }
-  #auth-error { color: #c0392b; font-size: 13px; min-height: 18px; text-align: center; margin: 4px 0 8px; }
+  #auth-error { color: #c0392b; font-size: 12px; min-height: 14px; margin: 2px 0 4px; }
 
   /* APP LAYOUT */
   #app { position: absolute; inset: 0; display: flex; }
@@ -252,15 +255,14 @@
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
   <div id="auth-card">
-    <h1>Мессенджер</h1>
-    <p class="sub" id="auth-sub">Войти в аккаунт</p>
+    <div class="auth-head">
+      <h1 id="auth-sub">Вход</h1>
+      <a href="#" class="auth-toggle" id="auth-toggle-link">Регистрация</a>
+    </div>
     <div class="field"><input id="auth-username" type="text" placeholder="Никнейм" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
     <div class="field"><input id="auth-password" type="password" placeholder="Пароль" autocomplete="current-password"></div>
     <div id="auth-error"></div>
     <button class="btn" id="auth-submit">Войти</button>
-    <div class="auth-toggle">
-      <a href="#" id="auth-toggle-link">Нет аккаунта? Зарегистрироваться</a>
-    </div>
   </div>
 </div>
 

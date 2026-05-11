@@ -122,16 +122,25 @@
   function setAuthMode(m) {
     authMode = m;
     if (m === 'login') {
-      authSub.textContent = 'Войти в аккаунт';
+      authSub.textContent = 'Вход';
       authSubmit.textContent = 'Войти';
-      authToggle.textContent = 'Нет аккаунта? Зарегистрироваться';
+      authToggle.textContent = 'Регистрация';
     } else {
-      authSub.textContent = 'Создать аккаунт';
+      authSub.textContent = 'Регистрация';
       authSubmit.textContent = 'Зарегистрироваться';
-      authToggle.textContent = 'Уже есть аккаунт? Войти';
+      authToggle.textContent = 'Вход';
     }
     showError(authError, '');
   }
+
+  // Когда iPad-клавиатура появляется, докрутить кнопку Войти в видимую область
+  function scrollAuthIntoView() {
+    setTimeout(function () {
+      try { authSubmit.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+    }, 350);
+  }
+  authUsername.addEventListener('focus', scrollAuthIntoView);
+  authPassword.addEventListener('focus', scrollAuthIntoView);
   authToggle.addEventListener('click', function (e) {
     e.preventDefault();
     setAuthMode(authMode === 'login' ? 'register' : 'login');
