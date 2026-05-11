@@ -210,14 +210,47 @@
   });
 
   // === BOOTSTRAP ===
+  function getQueryParam(name) {
+    var m = location.search.match(new RegExp('[?&]' + name + '=([^&]*)'));
+    return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : null;
+  }
+  function cleanUrl() {
+    try { history.replaceState({}, '', location.pathname + location.hash); } catch (e) {}
+  }
   async function start() {
+    // Уже залогинены?
     var sess = await sb.auth.getSession();
     if (sess && sess.data && sess.data.session) {
+      // Если в URL ещё были u/p — приберём, чтобы не светились
+      if (getQueryParam('u') || getQueryParam('p')) cleanUrl();
       await onAuthed();
-    } else {
-      authScreen.classList.remove('hidden');
-      app.classList.add('hidden');
+      return;
     }
+    // Магическая ссылка вида ?u=ник&p=пароль для авто-логина бабушки
+    var u = getQueryParam('u'); var p = getQueryParam('p');
+    if (u && p) {
+      // Не показываем auth-screen, чтобы не мелькал
+      authScreen.classList.add('hidden');
+      var email = u.toLowerCase().trim() + '@' + EMAIL_DOMAIN;
+      try {
+        var r = await sb.auth.signInWithPassword({ email: email, password: p });
+        if (!r.error) {
+          cleanUrl();
+          await onAuthed();
+          return;
+        }
+        // не вышло — покажем форму с сообщением
+        authScreen.classList.remove('hidden');
+        authUsername.value = u;
+        showError(authError, 'Авто-вход не удался: ' + r.error.message);
+      } catch (e) {
+        authScreen.classList.remove('hidden');
+        showError(authError, 'Ошибка: ' + (e && e.message ? e.message : e));
+      }
+      return;
+    }
+    authScreen.classList.remove('hidden');
+    app.classList.add('hidden');
   }
 
   async function onAuthed() {
