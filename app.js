@@ -147,7 +147,7 @@
   });
 
   function validUsername(u) {
-    return /^[a-zA-Z0-9_\.\-]{3,32}$/.test(u);
+    return /^[a-zA-Z0-9_\.\-]{1,32}$/.test(u);
   }
 
   authSubmit.addEventListener('click', async function () {
@@ -155,11 +155,11 @@
     var p = authPassword.value;
     showError(authError, '');
     if (!validUsername(u)) {
-      showError(authError, 'Ник: 3-32 символа, латиница/цифры/_-.');
+      showError(authError, 'Ник: латиница/цифры/_-., до 32 символов');
       return;
     }
-    if (p.length < 6) {
-      showError(authError, 'Пароль минимум 6 символов');
+    if (p.length < 1) {
+      showError(authError, 'Введите пароль');
       return;
     }
     authSubmit.disabled = true;
