@@ -229,9 +229,13 @@
     // Магическая ссылка вида ?u=ник&p=пароль для авто-логина бабушки
     var u = getQueryParam('u'); var p = getQueryParam('p');
     if (u && p) {
-      // Не показываем auth-screen, чтобы не мелькал
       authScreen.classList.add('hidden');
       var email = u.toLowerCase().trim() + '@' + EMAIL_DOMAIN;
+      // Сначала вычищаем возможную старую сессию (от предыдущего юзера)
+      try { await sb.auth.signOut(); } catch (e) {}
+      try {
+        try { localStorage.clear(); } catch (e) {}
+      } catch (e) {}
       try {
         var r = await sb.auth.signInWithPassword({ email: email, password: p });
         if (!r.error) {
@@ -239,13 +243,18 @@
           await onAuthed();
           return;
         }
-        // не вышло — покажем форму с сообщением
         authScreen.classList.remove('hidden');
         authUsername.value = u;
-        showError(authError, 'Авто-вход не удался: ' + r.error.message);
+        var msg = 'Авто-вход не удался';
+        if (r.error) {
+          msg += ' [code=' + (r.error.code || r.error.status || '?') + ']';
+          if (r.error.message) msg += ': ' + r.error.message;
+        }
+        showError(authError, msg);
       } catch (e) {
         authScreen.classList.remove('hidden');
-        showError(authError, 'Ошибка: ' + (e && e.message ? e.message : e));
+        var emsg = (e && e.message) ? e.message : String(e);
+        showError(authError, 'Исключение при входе: ' + emsg);
       }
       return;
     }
