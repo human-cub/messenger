@@ -2,6 +2,9 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -390,7 +393,10 @@
       var s = document.createElement('script');
       s.src = sources[i];
       s.onload = function () {
-        var a = document.createElement('script'); a.src = 'app.js'; document.body.appendChild(a);
+        // cache-bust app.js — иначе iPad/Chrome могут отдавать старую версию
+        var a = document.createElement('script');
+        a.src = 'app.js?t=' + Date.now();
+        document.body.appendChild(a);
       };
       s.onerror = function () { tryNext(i + 1); };
       document.body.appendChild(s);
