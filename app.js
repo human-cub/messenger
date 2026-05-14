@@ -185,9 +185,9 @@
           throw s.error;
         }
       } else {
-        var s2 = await sb.auth.signInWithPassword({ email: email, password: p });
+        var s2 = await doSignIn(email, p);
         if (s2.error) {
-          if (/Invalid/.test(s2.error.message)) {
+          if (/Invalid/.test(s2.error.message || '')) {
             showError(authError, 'Неверный ник или пароль');
             return;
           }
@@ -208,6 +208,63 @@
     await sb.auth.signOut();
     location.reload();
   });
+
+  // === SIGN-IN с фолбэком для iOS 12 Safari ===
+  // SDK шлёт POST с JSON+apikey header → CORS preflight. На iOS 12 Safari
+  // preflight может тихо падать с "Load failed". Если так — пробуем ручной
+  // запрос с apikey в URL и text/plain body, что считается "simple request"
+  // и не требует preflight.
+  async function doSignIn(email, password) {
+    // Попытка через SDK
+    try {
+      var r = await sb.auth.signInWithPassword({ email: email, password: password });
+      if (r && !r.error) return r;
+      if (r && r.error) {
+        var em = (r.error.message || '').toLowerCase();
+        // Если ошибка похожа на CORS/network — пойдём в fallback
+        if (em.indexOf('load failed') < 0 && em.indexOf('failed to fetch') < 0 && em.indexOf('network') < 0) {
+          return r; // вернём как есть (например, invalid_credentials)
+        }
+      }
+    } catch (e) {
+      var msg = (e && e.message ? e.message : String(e)).toLowerCase();
+      if (msg.indexOf('load failed') < 0 && msg.indexOf('failed to fetch') < 0 && msg.indexOf('network') < 0) {
+        throw e;
+      }
+    }
+    // Fallback: simple request (без preflight)
+    var url = SUPABASE_URL + '/auth/v1/token?grant_type=password&apikey=' + encodeURIComponent(SUPABASE_ANON_KEY);
+    var resp;
+    try {
+      resp = await fetch(url, {
+        method: 'POST',
+        // text/plain — simple request, без preflight
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify({ email: email, password: password })
+      });
+    } catch (e) {
+      return { error: { message: 'Сеть: ' + (e && e.message ? e.message : e), code: 'network' } };
+    }
+    var data; try { data = await resp.json(); } catch (e) { data = null; }
+    if (!resp.ok) {
+      return { error: {
+        message: (data && (data.error_description || data.msg || data.message)) || ('HTTP ' + resp.status),
+        code: (data && (data.error_code || data.error)) || resp.status,
+        status: resp.status
+      }};
+    }
+    // Получили токены — отдаём SDK чтобы он сохранил сессию
+    try {
+      var setRes = await sb.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token
+      });
+      if (setRes && setRes.error) return setRes;
+      return { data: setRes && setRes.data, error: null };
+    } catch (e) {
+      return { error: { message: 'setSession failed: ' + (e && e.message ? e.message : e) } };
+    }
+  }
 
   // === BOOTSTRAP ===
   function getQueryParam(name) {
@@ -231,13 +288,10 @@
     if (u && p) {
       authScreen.classList.add('hidden');
       var email = u.toLowerCase().trim() + '@' + EMAIL_DOMAIN;
-      // Сначала вычищаем возможную старую сессию (от предыдущего юзера)
       try { await sb.auth.signOut(); } catch (e) {}
+      try { localStorage.clear(); } catch (e) {}
       try {
-        try { localStorage.clear(); } catch (e) {}
-      } catch (e) {}
-      try {
-        var r = await sb.auth.signInWithPassword({ email: email, password: p });
+        var r = await doSignIn(email, p);
         if (!r.error) {
           cleanUrl();
           await onAuthed();
