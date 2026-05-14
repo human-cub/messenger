@@ -253,16 +253,25 @@
         status: resp.status
       }};
     }
-    // Получили токены — отдаём SDK чтобы он сохранил сессию
+    // Получили токены — сохраняем в localStorage в формате supabase-js (без сетевых проверок)
+    // SDK подхватит их при следующем getSession()/onAuthed.
     try {
-      var setRes = await sb.auth.setSession({
+      var refMatch = SUPABASE_URL.match(/https?:\/\/([a-z0-9]+)\./);
+      var projectRef = refMatch ? refMatch[1] : 'default';
+      var storageKey = 'sb-' + projectRef + '-auth-token';
+      var nowSec = Math.floor(Date.now() / 1000);
+      var session = {
         access_token: data.access_token,
-        refresh_token: data.refresh_token
-      });
-      if (setRes && setRes.error) return setRes;
-      return { data: setRes && setRes.data, error: null };
+        refresh_token: data.refresh_token,
+        expires_in: data.expires_in || 3600,
+        expires_at: data.expires_at || (nowSec + (data.expires_in || 3600)),
+        token_type: data.token_type || 'bearer',
+        user: data.user || null
+      };
+      try { localStorage.setItem(storageKey, JSON.stringify(session)); } catch (e) {}
+      return { data: { session: session, user: session.user }, error: null };
     } catch (e) {
-      return { error: { message: 'setSession failed: ' + (e && e.message ? e.message : e) } };
+      return { error: { message: 'save session failed: ' + (e && e.message ? e.message : e) } };
     }
   }
 
@@ -288,8 +297,9 @@
     if (u && p) {
       authScreen.classList.add('hidden');
       var email = u.toLowerCase().trim() + '@' + EMAIL_DOMAIN;
-      try { await sb.auth.signOut(); } catch (e) {}
-      try { localStorage.clear(); } catch (e) {}
+      // НЕ зовём signOut() — это сетевой запрос, на iOS 12 может зависать
+      // и блокировать дальнейший signIn. Достаточно того, что в loader.html
+      // мы уже могли вычистить старые ключи через ?reset=1.
       try {
         var r = await doSignIn(email, p);
         if (!r.error) {
@@ -317,12 +327,16 @@
   }
 
   async function onAuthed() {
-    var u = await sb.auth.getUser();
-    if (!u || !u.data || !u.data.user) {
+    // Берём user из локальной сессии — без дополнительного запроса getUser.
+    // На iOS 12 каждый лишний запрос с Authorization-header может падать на CORS preflight.
+    var s = await sb.auth.getSession();
+    var sessionUser = s && s.data && s.data.session && s.data.session.user;
+    if (!sessionUser) {
       authScreen.classList.remove('hidden');
       return;
     }
-    var userId = u.data.user.id;
+    var userId = sessionUser.id;
+    var u = { data: { user: sessionUser } };
     // Загружаем профиль
     var pr = await sb.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (pr.error || !pr.data) {

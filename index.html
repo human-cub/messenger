@@ -378,6 +378,23 @@
 <audio id="ringtone" loop></audio>
 
 <script>
+  // Если в URL есть ?reset=1 — выкидываем все ключи supabase из localStorage
+  // (на случай если зависла битая сессия после смены email/пароля)
+  (function () {
+    try {
+      var s = location.search || '';
+      if (s.indexOf('reset=1') >= 0) {
+        var keys = [];
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && (k.indexOf('sb-') === 0 || k.indexOf('supabase') === 0)) keys.push(k);
+        }
+        for (var j = 0; j < keys.length; j++) localStorage.removeItem(keys[j]);
+      }
+    } catch (e) {}
+  })();
+</script>
+<script>
   // Загрузка Supabase SDK с фолбэком на случай блокировки CDN.
   (function () {
     var sources = [
