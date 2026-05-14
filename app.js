@@ -8,7 +8,7 @@
   'use strict';
 
   // === CONFIG ===
-  var SUPABASE_URL = 'https://rfqdlgaxtlkhlyabwayx.supabase.co';
+  var SUPABASE_URL = 'https://messenger-proxy.pim-pum.workers.dev';
   var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmcWRsZ2F4dGxraGx5YWJ3YXl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNzM1NTcsImV4cCI6MjA5Mzg0OTU1N30.OQ5gXJS-huvIUTVw-gMHMZkwBb4GxPGU1RsfFn9M_Tc';
   var EMAIL_DOMAIN = 'msg.local';
   var ICE_SERVERS = [
